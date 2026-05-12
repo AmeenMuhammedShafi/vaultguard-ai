@@ -1,30 +1,11 @@
-"""
-Liveness detection module.
-
-Detects if a face is real or spoofed (photo/video attack).
-"""
-
 import cv2
 import numpy as np
 
-
 class LivenessDetector:
-    """
-    Simple liveness detection using motion and texture analysis.
-    
-    Production-grade systems would use:
-    - 3D depth sensing
-    - Texture analysis (LBP)
-    - Micro-expression detection
-    - Eye blinking detection
-    """
-    
     def __init__(self):
-        """Initialize liveness detector."""
         self.prev_frame = None
     
     def detect_liveness(self, frame: np.ndarray) -> Tuple[bool, float]:
-        """Simple liveness check using optical flow."""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if self.prev_frame is None:
             self.prev_frame = gray

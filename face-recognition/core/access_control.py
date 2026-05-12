@@ -78,10 +78,8 @@ class DualPersonAccessControl:
         return frame_display, queue_status['is_complete']
 
     def try_authenticate(self) -> bool:
-        """Try to authenticate person at terminal (call when user presses SPACE)."""
         return False
     def unlock_door(self) -> bool:
-        """Unlock door (called when both persons authenticated)."""
         expected_count = self.auth_terminal.get_expected_entry_count()
         if expected_count < 2:
             print("❌ Cannot unlock - not both persons authenticated")
@@ -94,7 +92,6 @@ class DualPersonAccessControl:
         return True
 
     def process_entry_frame(self, frame: np.ndarray, yolo_detections: list = None) -> Tuple[np.ndarray, Optional[dict]]:
-        """Process frame during entry window (count persons crossing)."""
         frame_display = frame.copy()
         h, w = frame.shape[:2]
         if not self.entry_window.is_window_open():
@@ -162,7 +159,6 @@ class DualPersonAccessControl:
         return frame_display, None
 
     def _log_entry_result(self, result: dict) -> None:
-        """Log entry verification result."""
         print(f"\nENTRY VERIFICATION RESULT:")
         print(f"  Expected: {result['expected']}")
         print(f"  Actual: {result['actual']}")
@@ -177,7 +173,6 @@ class DualPersonAccessControl:
             })
 
     def get_system_state(self) -> dict:
-        """Get current system state."""
         return {
             'state': self.state,
             'auth_queue': self.auth_terminal.get_queue_status(),
@@ -187,7 +182,6 @@ class DualPersonAccessControl:
         }
 
     def reset_system(self) -> None:
-        """Reset system to initial state."""
         self.state = "WAITING_AUTH"
         self.auth_terminal.clear_queue()
         self.body_counter.reset()

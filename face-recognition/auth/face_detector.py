@@ -11,19 +11,16 @@ from pathlib import Path
 
 
 class FaceDetector:
-    """Detects faces in images using OpenCV DNN."""
     def __init__(self,
                  prototxt_path: str = "deploy.prototxt",
                  model_path: str = "res10_300x300_ssd_iter_140000.caffemodel",
                  confidence_threshold: float = 0.6):
-        """Initialize face detector."""
         prototxt_path = self._find_model_file(prototxt_path)
         model_path = self._find_model_file(model_path)
         self.net = cv2.dnn.readNetFromCaffe(prototxt_path, model_path)
         self.confidence_threshold = confidence_threshold
     
     def _find_model_file(self, filename: str) -> str:
-        """Find model file by searching up the directory tree."""
         current = Path.cwd()
         while current != current.parent:
             candidate = current / filename
@@ -33,15 +30,6 @@ class FaceDetector:
         return filename
     
     def detect_faces(self, frame: np.ndarray) -> List[Tuple[int, int, int, int, float]]:
-        """
-        Detect faces in a frame.
-        
-        Args:
-            frame: Input image (numpy array)
-            
-        Returns:
-            List of (x1, y1, x2, y2, confidence) tuples
-        """
         h, w = frame.shape[:2]
         
         blob = cv2.dnn.blobFromImage(
@@ -62,7 +50,6 @@ class FaceDetector:
                 box = detections[0, 0, i, 3:7] * [w, h, w, h]
                 (x1, y1, x2, y2) = box.astype("int")
                 
-                # Clamp coordinates to frame bounds
                 x1 = max(0, x1)
                 y1 = max(0, y1)
                 x2 = min(w, x2)
@@ -74,14 +61,4 @@ class FaceDetector:
     
     def extract_face_roi(self, frame: np.ndarray, 
                         x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
-        """
-        Extract face region of interest from frame.
-        
-        Args:
-            frame: Input image
-            x1, y1, x2, y2: Bounding box coordinates
-            
-        Returns:
-            Face ROI image
-        """
         return frame[y1:y2, x1:x2]

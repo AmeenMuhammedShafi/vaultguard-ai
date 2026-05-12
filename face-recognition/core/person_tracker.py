@@ -1,27 +1,9 @@
-"""
-Simple person tracker using centroid matching.
-
-Tracks persons across frames to prevent duplicate counts.
-"""
-
 from typing import List, Dict, Tuple
 import math
 
 
 class PersonTracker:
-    """
-    Track persons across frames using centroid matching.
-    
-    Assigns persistent IDs to persons based on proximity between frames.
-    """
-    
     def __init__(self, max_distance: float = 200.0):
-        """
-        Initialize person tracker.
-        
-        Args:
-            max_distance: Max pixels a person can move between frames
-        """
         self.max_distance = max_distance
         self.next_id = 1
         self.tracked_persons: Dict[int, Tuple[float, float]] = {}  # {id: (x, y)}
@@ -29,7 +11,6 @@ class PersonTracker:
         self.max_frames_missing = 120  # Allow person to be missing up to 4 seconds (120 frames @ 30fps)
     
     def update(self, detections: List[Tuple[int, int, int, int]]) -> Dict[int, Tuple[int, int, int, int]]:
-        """Update tracker with new detections."""
         result = {}
         matched_detections = set()
         matched_tracked = set()
@@ -72,11 +53,9 @@ class PersonTracker:
         return result
     
     def get_active_ids(self) -> List[int]:
-        """Get list of currently tracked person IDs."""
         return list(self.tracked_persons.keys())
     
     def reset(self) -> None:
-        """Reset tracker for new window."""
         self.tracked_persons = {}
         self.person_history = {}
         self.next_id = 1

@@ -1,23 +1,8 @@
-"""
-Entry window manager.
-
-Manages the 3-second window where authorized persons can enter.
-"""
-
 import time
 from typing import Callable, Optional
 
-
-class EntryWindowManager:
-    """Manages the entry window (2 minutes) after dual authentication."""
-    
+class EntryWindowManager:    
     def __init__(self, window_duration: float = 120.0):
-        """
-        Initialize entry window manager.
-        
-        Args:
-            window_duration: How long door stays unlocked (seconds)
-        """
         self.window_duration = window_duration
         self.window_active = False
         self.window_start_time: Optional[float] = None
@@ -25,7 +10,6 @@ class EntryWindowManager:
         self.actual_count = 0
     
     def open_entry_window(self, expected_count: int) -> bool:
-        """Open entry window (door unlocks)."""
         if self.window_active:
             print("⚠️  Entry window already open")
             return False
@@ -38,21 +22,18 @@ class EntryWindowManager:
         return True
     
     def is_window_open(self) -> bool:
-        """Check if entry window is currently open."""
         if not self.window_active:
             return False
         
         elapsed = time.time() - self.window_start_time
         
         if elapsed >= self.window_duration:
-            # Window expired
             self.window_active = False
             return False
         
         return True
     
     def record_person_crossing(self) -> int:
-        """Record that a person crossed the doorway."""
         if self.is_window_open():
             self.actual_count += 1
             elapsed = time.time() - self.window_start_time
@@ -61,7 +42,6 @@ class EntryWindowManager:
         return self.actual_count
     
     def close_entry_window(self) -> dict:
-        """Close entry window and return verification results."""
         final_expected = self.expected_count
         final_actual = self.actual_count
         if not self.window_active and final_expected == 0:
