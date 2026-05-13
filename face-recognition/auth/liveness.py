@@ -1,5 +1,7 @@
 import cv2
 import numpy as np
+from typing import Tuple
+from typing import Tuple
 
 class LivenessDetector:
     def __init__(self):

@@ -5,7 +5,11 @@ from typing import Dict, Optional
 
 
 class EmbeddingStore:
-    def __init__(self, db_path: str = "database/embeddings.pkl"):
+    def __init__(self, db_path: str = None):
+        # Use absolute path based on module location (not working directory)
+        if db_path is None:
+            db_path = str(Path(__file__).parent / "embeddings.pkl")
+        
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.embeddings: Dict[str, np.ndarray] = self._load()

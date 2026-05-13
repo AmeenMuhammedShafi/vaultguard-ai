@@ -1,11 +1,10 @@
 import cv2
 import numpy as np
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 from datetime import datetime
+from ultralytics import YOLO
+from pathlib import Path
 from core.authentication_terminal import AuthenticationTerminal
-from core.entry_window import EntryWindowManager
-from core.body_counter import BodyCounter
-from core.person_tracker import PersonTracker
 from auth.face_detector import FaceDetector
 
 class DualPersonAccessControl:
@@ -14,22 +13,25 @@ class DualPersonAccessControl:
         print("DUAL-PERSON ACCESS CONTROL SYSTEM - INITIALIZING")
         print("="*70)
         self.auth_terminal = AuthenticationTerminal()
-        self.entry_window = EntryWindowManager(window_duration=120.0)
-        self.body_counter = BodyCounter()
         self.face_detector = FaceDetector()
-        self.person_tracker = PersonTracker()
+        
+        yolo_model_path = Path(__file__).parent.parent.parent / "strong-room-ai" / "yolov8m.pt"
+        if not yolo_model_path.exists():
+            yolo_model_path = "yolov8m.pt"
+        print(f"Loading YOLO model from: {yolo_model_path}")
+        self.yolo_model = YOLO(str(yolo_model_path))
+        print("✅ YOLO model loaded for person detection")
+        
         self.state = "WAITING_AUTH"
         self.alerts = []
-        self._prev_person_count = 0
-        self._crossed_persons: set = set()
+        self._frame_count = 0
         print("✅ System ready")
         print("="*70)
         print("\nWORKFLOW:")
         print("1. Person A: Face authentication at terminal")
         print("2. Person B: Face authentication at terminal")
-        print("3. Both auth'd? → Door unlocks for 10 minutes")
-        print("4. Camera counts persons crossing")
-        print("5. Verify count vs expected")
+        print("3. Both auth'd? → Door unlocks")
+        print("4. Corner camera monitors with continuous tracking")
         print("="*70 + "\n")
 
     def authenticate_face_from_frame(self, frame: np.ndarray) -> Tuple[bool, Optional[str], float]:
@@ -79,110 +81,8 @@ class DualPersonAccessControl:
 
     def try_authenticate(self) -> bool:
         return False
-    def unlock_door(self) -> bool:
-        expected_count = self.auth_terminal.get_expected_entry_count()
-        if expected_count < 2:
-            print("❌ Cannot unlock - not both persons authenticated")
-            return False
-        self.state = "DOOR_UNLOCKED"
-        self.entry_window.open_entry_window(expected_count=expected_count)
-        self.body_counter.reset()
-        self.person_tracker.reset()
-        self._crossed_persons = set()
-        return True
-
-    def process_entry_frame(self, frame: np.ndarray, yolo_detections: list = None) -> Tuple[np.ndarray, Optional[dict]]:
-        frame_display = frame.copy()
-        h, w = frame.shape[:2]
-        if not self.entry_window.is_window_open():
-            entry_result = self.entry_window.close_entry_window()
-            self._log_entry_result(entry_result)
-            self.state = "WINDOW_CLOSED"
-            self.auth_terminal.clear_queue()
-            self.person_tracker.reset()
-            return frame_display, entry_result
-
-        detections_boxes = []
-        if yolo_detections:
-            detections_boxes = yolo_detections
-        else:
-            faces = self.face_detector.detect_faces(frame)
-            confident_faces = [f for f in faces if f[4] >= 0.4]
-            detections_boxes = [(x1, y1, x2, y2) for x1, y1, x2, y2, _ in confident_faces]
-
-        tracked_persons = self.person_tracker.update(detections_boxes)
-
-        new_crossings = 0
-        for person_id in tracked_persons.keys():
-            if person_id not in self._crossed_persons:
-                self._crossed_persons.add(person_id)
-                self.entry_window.record_person_crossing()
-                new_crossings += 1
-
-        if new_crossings > 1:
-            print(f"🚨 MULTIPLE SIMULTANEOUS ENTRIES: {new_crossings} persons entered together!")
-        elif new_crossings == 1:
-            print(f"   ✓ 1 person crossed (Total: {self.entry_window.actual_count})")
-
-        window_status = self.entry_window.get_window_status()
-        color = (0, 255, 0) if window_status['active'] else (0, 0, 255)
-        status_text = f"ENTRY WINDOW ACTIVE | {window_status['remaining']:.1f}s remaining"
-        cv2.putText(frame_display, status_text, (10, 40),
-                   cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
-
-        currently_visible = len(tracked_persons)
-        detection_method = 'YOLO' if yolo_detections else 'Face'
-        detection_text = f"Detection: {detection_method} | Currently visible: {currently_visible} persons"
-        vis_color = (0, 0, 255) if currently_visible > 1 else (0, 165, 255)
-        cv2.putText(frame_display, detection_text, (10, 80),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, vis_color, 1)
-
-        expected_text = f"Expected total: {window_status['expected']} persons"
-        actual_text = f"Total counted: {window_status['actual']} unique crossings"
-        cv2.putText(frame_display, expected_text, (10, 120),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 1)
-        cv2.putText(frame_display, actual_text, (10, 160),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 1)
-
-        for person_id, (x1, y1, x2, y2) in tracked_persons.items():
-            box_color = (0, 255, 0)
-            label = f"P#{person_id}"
-            if person_id in self._crossed_persons:
-                label += " ✓"
-            cv2.rectangle(frame_display, (x1, y1), (x2, y2), box_color, 2)
-            cv2.putText(frame_display, label, (x1, y1-10),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, box_color, 2)
-
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cv2.putText(frame_display, timestamp, (w-300, h-10),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
-        return frame_display, None
-
-    def _log_entry_result(self, result: dict) -> None:
-        print(f"\nENTRY VERIFICATION RESULT:")
-        print(f"  Expected: {result['expected']}")
-        print(f"  Actual: {result['actual']}")
-        print(f"  Valid: {result['is_valid']}")
-        print(f"  Tailgating: {result['tailgating']}")
-        print(f"  Message: {result['message']}")
-        if result['tailgating']:
-            self.alerts.append({
-                'type': 'TAILGATING',
-                'unauthorized_count': result['actual'] - result['expected'],
-                'timestamp': datetime.now()
-            })
-
-    def get_system_state(self) -> dict:
-        return {
-            'state': self.state,
-            'auth_queue': self.auth_terminal.get_queue_status(),
-            'entry_window': self.entry_window.get_window_status(),
-            'body_count': self.body_counter.get_count(),
-            'alerts': self.alerts
-        }
 
     def reset_system(self) -> None:
         self.state = "WAITING_AUTH"
         self.auth_terminal.clear_queue()
-        self.body_counter.reset()
         self.alerts = []

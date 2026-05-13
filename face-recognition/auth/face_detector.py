@@ -1,9 +1,3 @@
-"""
-Face detection module using OpenCV DNN.
-
-Detects faces in frames for enrollment and runtime verification.
-"""
-
 import cv2
 import numpy as np
 from typing import List, Tuple
@@ -21,12 +15,13 @@ class FaceDetector:
         self.confidence_threshold = confidence_threshold
     
     def _find_model_file(self, filename: str) -> str:
-        current = Path.cwd()
-        while current != current.parent:
-            candidate = current / filename
-            if candidate.exists():
-                return str(candidate)
-            current = current.parent
+        current = Path(__file__).parent.parent
+        candidate = current / filename
+        if candidate.exists():
+            return str(candidate)
+        candidate = Path.cwd() / filename
+        if candidate.exists():
+            return str(candidate)
         return filename
     
     def detect_faces(self, frame: np.ndarray) -> List[Tuple[int, int, int, int, float]]:
